@@ -48,7 +48,7 @@ def index():
 def signup():
     # Check if admin accounts are limited to two
     admin_count = User.query.filter_by(role='admin').count()
-    if admin_count >= 2:
+    if admin_count >= 7:
         flash('Admin registration limit reached. Contact an existing admin.', 'error')
         return redirect(url_for('main.login'))
 

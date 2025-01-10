@@ -5,29 +5,33 @@ from uuid import uuid4
 # Initialize SQLAlchemy
 db = SQLAlchemy()
 
-def generate_uuid():
-    return str(uuid4())
+import uuid
+
+def generate_unique_id():
+    # Use UUID4 for randomness or UUID1 for uniqueness based on time and machine
+    return str(uuid.uuid4())  # Generates a new unique UUID
 
 class User(db.Model):
     __tablename__ = 'users'
 
-    id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)  # Use integer IDs
     username = db.Column(db.String(50), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(20), default='user')  # Possible values: 'user', 'admin'
     phone = db.Column(db.String(15), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    is_active = db.Column(db.Boolean, default=False)  # Add this field
+    is_active = db.Column(db.Boolean, default=False)
 
     def __repr__(self):
         return f"<User {self.username}, Role: {self.role}>"
 
 
+
 class MenuItem(db.Model):
     __tablename__ = 'menu_items'
 
-    id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(255), nullable=True)
     price = db.Column(db.Float, nullable=False)
@@ -39,7 +43,7 @@ class MenuItem(db.Model):
 class Order(db.Model):
     __tablename__ = 'orders'
 
-    id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
     food_item = db.Column(db.String(100), nullable=False)
     pickup_time = db.Column(db.Time, nullable=False)
@@ -54,7 +58,7 @@ class Order(db.Model):
 class Room(db.Model):
     __tablename__ = 'rooms'
 
-    id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(20), default='available')  # 'available', 'booked'
     booked_by = db.Column(db.JSON, nullable=True)  # Store booking details
@@ -65,7 +69,7 @@ class Room(db.Model):
 class Event(db.Model):
     __tablename__ = 'events'
 
-    id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(100), nullable=False)
     date = db.Column(db.DateTime, nullable=False)
     location = db.Column(db.String(100), nullable=False)
@@ -77,10 +81,11 @@ class Event(db.Model):
 class Staff(db.Model):
     __tablename__ = 'staff'
 
-    id = db.Column(db.String(36), primary_key=True, default=generate_uuid)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(50), nullable=False)
     position = db.Column(db.String(50), nullable=False)
     phone = db.Column(db.String(15), nullable=True)
+
 
     def __repr__(self):
         return f"<Staff {self.name} - {self.position}>"

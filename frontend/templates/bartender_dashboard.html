@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bar Dashboard</title>
+</head>
+<body>
+    <h1>Welcome, {{ session['username'] }}</h1>
+
+    <h2>Events This Week</h2>
+    <ul>
+        {% for event in events %}
+        <li>{{ event.name }} - {{ event.date }}</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Opening Balance: {{ opening_balance.amount }}</h2>
+
+    <form method="POST">
+        <!-- Add form for daily sales and closing stock -->
+    </form>
+</body>
+</html>

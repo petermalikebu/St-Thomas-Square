@@ -43,6 +43,7 @@ def index():
     return render_template('base.html')
 
 
+
 @main.route('/signup', methods=['GET', 'POST'])
 def signup():
     # Check if admin accounts are limited to two
@@ -56,7 +57,6 @@ def signup():
         email = request.form['email']
         password = request.form['password']
         phone = request.form['phone']
-        id_number = request.form['id_number']  # Get the ID number from the form
 
         # Check if the email is already registered
         if User.query.filter_by(email=email).first():
@@ -65,8 +65,7 @@ def signup():
 
         # Create a new user object (admin or user based on your logic)
         hashed_password = generate_password_hash(password)
-        new_user = User(username=username, email=email, password=hashed_password, role='admin', phone=phone,
-                        id_number=id_number)
+        new_user = User(username=username, email=email, password=hashed_password, role='admin', phone=phone)
 
         # Add the new user to the session and commit to the database
         db.session.add(new_user)
@@ -78,6 +77,7 @@ def signup():
     return render_template('signup.html')
 
 
+
 @main.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -86,23 +86,55 @@ def login():
 
         # Find user by email
         user = User.query.filter_by(email=email).first()
+
         if user and check_password_hash(user.password, password):
             # Check if the user is an admin
-            if user.role != 'admin':
-                flash('Only admin accounts can log in.', 'error')
+            if user.role == 'admin':
+                # Successful login for admin
+                session['user_id'] = str(user.id)
+                session['username'] = user.username
+                session['user_role'] = user.role
+                # Set is_active to True when logged in
+                user.is_active = True
+                db.session.commit()
+
+                flash('Login successful!', 'success')
+                return redirect(url_for('main.dashboard'))
+
+            # Check role-based redirection
+            elif user.role == 'bartender':
+                session['user_id'] = str(user.id)
+                session['username'] = user.username
+                session['user_role'] = user.role
+                user.is_active = True
+                db.session.commit()
+
+                flash('Login successful!', 'success')
+                return redirect(url_for('main.bartender_dashboard'))  # Redirect to bartender dashboard
+
+            elif user.role == 'event_planner':
+                session['user_id'] = str(user.id)
+                session['username'] = user.username
+                session['user_role'] = user.role
+                user.is_active = True
+                db.session.commit()
+
+                flash('Login successful!', 'success')
+                return redirect(url_for('main.event_planner_dashboard'))  # Redirect to event planner dashboard
+
+            elif user.role == 'restaurant_tender':
+                session['user_id'] = str(user.id)
+                session['username'] = user.username
+                session['user_role'] = user.role
+                user.is_active = True
+                db.session.commit()
+
+                flash('Login successful!', 'success')
+                return redirect(url_for('main.restaurant_tender_dashboard'))  # Redirect to restaurant tender dashboard
+
+            else:
+                flash('Invalid role assigned.', 'error')
                 return redirect(url_for('main.login'))
-
-            # Successful login
-            session['user_id'] = str(user.id)
-            session['username'] = user.username
-            session['user_role'] = user.role
-
-            # Set is_active to True when logged in
-            user.is_active = True
-            db.session.commit()
-
-            flash('Login successful!', 'success')
-            return redirect(url_for('main.dashboard'))
 
         flash('Invalid email or password.', 'error')
     return render_template('login.html')
@@ -113,6 +145,14 @@ def login():
 def dashboard():
     return render_template('dashboard.html', username=session.get('username'))
 
+# Function to generate unique ID
+def generate_unique_id():
+    last_user = db.session.query(User).order_by(User.id.desc()).first()
+    if last_user:
+        return str(int(last_user.id) + 1)  # Increment last user ID
+    else:
+        return '001'  # Return '001' if no users are present
+
 @main.route('/add_user', methods=['POST'])
 @login_required
 def add_user():
@@ -120,6 +160,7 @@ def add_user():
         flash('Access denied!', 'error')
         return redirect(url_for('main.dashboard'))
 
+    # Extract form data
     full_name = request.form['full_name']
     email = request.form['email']
     password = request.form['password']
@@ -127,30 +168,36 @@ def add_user():
     phone = request.form['phone']
     role = request.form['role']
 
+    # Check if email is already registered
     if User.query.filter_by(email=email).first():
         flash('Email is already registered.', 'error')
         return redirect(url_for('main.add_user_page'))
 
+    # Generate a unique user ID
+    new_user_id = generate_unique_id()
+
+    # Hash the password
     hashed_password = generate_password_hash(password)
+
+    # Create the new user with the unique ID
     new_user = User(
+        id=new_user_id,  # Use the generated unique ID
         username=full_name,
         email=email,
         password=hashed_password,
         role=role,
-        phone=phone,
-        id=id_number
+        phone=phone
     )
 
+    # Add and commit the new user to the database
     db.session.add(new_user)
     db.session.commit()
 
     flash('User added successfully!', 'success')
     return redirect(url_for('main.dashboard'))
 
-# Replace this:
-# @app.route('/export_users')  # Define this route outside of the blueprint if using app directly
 
-# With this:
+
 @main.route('/export_users')  # Use the blueprint 'main' instead of 'app'
 @login_required
 def export_users():
@@ -405,6 +452,123 @@ def send_booking_notification(user_details, room_id):
     )
     print(f"Notification sent: {message}")
 
+
+
+@main.route('/bartender_dashboard')
+def bartender_dashboard():
+    # Your logic to fetch the opening_balance
+    opening_balance = get_opening_balance()  # Example function to get the balance
+    return render_template('bartender_dashboard.html', opening_balance=opening_balance)
+
+def get_opening_balance():
+    # Example static value, replace with your actual logic
+    return {'amount': 1000}
+
+
+
+@main.route('/bar_dashboard')
+@login_required
+def bar_dashboard():
+    if session.get('user_role') != 'bartender':
+        flash('Access denied!', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    # Example: Retrieve bar events and other necessary information
+    events = BarEvent.query.all()  # Assuming you have a BarEvent model
+    opening_balance = BarStock.query.first()  # Retrieve opening balance
+    return render_template('bartender_dashboard.html', events=events, opening_balance=opening_balance)
+
+
+@main.route('/event_planner_dashboard')
+@login_required
+def event_planner_dashboard():
+    if session.get('user_role') != 'event_planner':
+        flash('Access denied!', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    return render_template('event_planner_dashboard.html')  # Template for event planner
+
+
+@main.route('/restaurant_dashboard')
+@login_required
+def restaurant_dashboard():
+    if session.get('user_role') != 'restaurant_tender':
+        flash('Access denied!', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    # Example: Retrieve food items and their availability status
+    food_items = Food.query.all()  # Assuming you have a Food model for this
+
+    return render_template('restaurant_tender_dashboard.html', food_items=food_items)
+
+
+@main.route('/order_food/<int:food_id>', methods=['GET', 'POST'])
+@login_required
+def order_food(food_id):
+    food = Food.query.get(food_id)
+
+    if request.method == 'POST':
+        customer_name = request.form['name']
+        phone_number = request.form['phone']
+        collection_time = request.form['collection_time']
+
+        # Validate collection time is between 9:30 and 21:30
+        if not (9 <= int(collection_time.split(":")[0]) <= 21):
+            flash('Invalid collection time. Must be between 9:30 and 21:30.', 'error')
+            return redirect(url_for('main.order_food', food_id=food.id))
+
+        # Process payment (this could integrate with a payment gateway)
+        payment_method = request.form['payment_method']
+
+        # Send confirmation message to customer and notify the kitchen
+        # You can integrate email or SMS here
+
+        flash(f"Thank you! Your order for {food.name} will be ready at {collection_time}.", 'success')
+        return redirect(url_for('main.restaurant_dashboard'))
+
+    return render_template('order_food.html', food=food)
+
+
+@main.route('/room_dashboard')
+@login_required
+def room_dashboard():
+    if session.get('user_role') != 'event_planner':
+        flash('Access denied!', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    rooms = Room.query.filter_by(is_available=True).all()  # Fetch available rooms
+    return render_template('event_planner_dashboard.html', rooms=rooms)
+
+
+# Route for booking a specific room with a given room_id
+@main.route('/book_room/<int:room_id>', methods=['GET', 'POST'], endpoint='book_specific_room')
+@login_required
+def book_room(room_id):
+    room = Room.query.get(room_id)
+
+    if request.method == 'POST':
+        name = request.form['name']
+        phone = request.form['phone']
+        arrival_date = request.form['arrival_date']
+        duration = request.form['duration']
+
+        # Process payment (integrate with a payment gateway)
+        payment_method = request.form['payment_method']
+
+        # Send confirmation message and notify the manager
+        flash('Room booking successful!', 'success')
+        return redirect(url_for('main.room_dashboard'))
+
+    return render_template('book_room.html', room=room)
+
+# Route for the general room list (no room_id) - renamed function
+@main.route('/book_room_list', methods=['POST'], endpoint='book_room_list')
+@login_required
+def book_room_list():
+    room_id = request.form['room_id']
+    # Your logic for booking a room from the list
+
+    return redirect(url_for('main.room_list'))
 
 
 @main.route('/logout', methods=['POST'])

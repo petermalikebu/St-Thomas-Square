@@ -12,7 +12,8 @@ from sqlalchemy import text
 from werkzeug.security import generate_password_hash, check_password_hash
 from backend.models import BeerStock
 from backend.models import BartenderTransaction
-
+from backend.models import Event
+from backend.models import Room
 from backend.app import login_manager  # Import the login_manager
 from backend.models import User, db  # Import models and db from the correct location
 
@@ -40,6 +41,29 @@ def manager_required(f):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(user_id)  # Ensure this returns the user object correctly
+
+
+# Function to generate unique ID
+def generate_unique_id():
+    last_user = db.session.query(User).order_by(User.id.desc()).first()
+    if last_user:
+        return str(int(last_user.id) + 1)  # Increment last user ID
+    else:
+        return '001'  # Return '001' if no users are present
+
+def get_all_beers():
+    # This is just an example assuming you're using SQLAlchemy or similar ORM
+    beers = Beer.query.all()  # Fetch all beer stock from the database
+    return beers
+
+def get_all_events():
+    # Fetch all events from the database
+    return Event.query.all()
+
+def get_rooms_available():
+    # Query rooms where the 'is_available' attribute is True
+    available_rooms = Room.query.filter_by(is_available=True).all()  # Adjust if your column is named differently
+    return len(available_rooms)
 
 # Routes
 @main.route('/')
@@ -145,17 +169,25 @@ def login():
 
 
 @main.route('/dashboard')
-@login_required
 def dashboard():
-    return render_template('dashboard.html', username=session.get('username'))
+    # Fetch all beers from the database
+    beers = Beer.query.all()
 
-# Function to generate unique ID
-def generate_unique_id():
-    last_user = db.session.query(User).order_by(User.id.desc()).first()
-    if last_user:
-        return str(int(last_user.id) + 1)  # Increment last user ID
-    else:
-        return '001'  # Return '001' if no users are present
+    # Calculate the total quantity of beer remaining
+    beer_remaining = sum(beer.quantity for beer in beers)
+
+    # Optionally, you could also calculate the total value of the beer stock
+    total_stock_value = sum(beer.total_value for beer in beers)
+
+    # Fetch other data for the dashboard (events, rooms available, etc.)
+    events = get_all_events()
+    rooms_available = get_rooms_available()
+
+    # Pass all necessary data to the template
+    return render_template('dashboard.html', events=events, rooms_available=rooms_available, beers=beers,
+                           beer_remaining=beer_remaining, total_stock_value=total_stock_value)
+
+
 
 @main.route('/add_user', methods=['POST'])
 @login_required
@@ -398,105 +430,19 @@ def place_order():
 @main.route('/admin_dashboard')
 @login_required
 def admin_dashboard():
-    # Retrieve all beer stock data and bartender transaction data
-    beers = BeerStock.query.all()  # Assuming BeerStock is your model for beer data
-    transactions = BartenderTransaction.query.all()  # Assuming BartenderTransaction is your model for transaction data
+    # Retrieve all beer stock data from the database
+    beers = BeerStock.query.all()
 
-    # Pass both the beer data and transaction data to the template
-    return render_template('admin_dashboard.html', beers=beers, transactions=transactions)
+    # Pass the beer stock data to the template
+    return render_template("admin_dashboard.html", beers=beers)
 
-
-@main.route('/rooms', methods=['GET'])
-@login_required
-def room_list():
-    # Correct the raw SQL query by wrapping it with text()
-    rooms = db.session.execute(text("SELECT * FROM rooms")).fetchall()
-    return render_template('rooms.html', rooms=rooms)
-
-@main.route('/rooms/book', methods=['POST'])
-@login_required
-def book_room():
-    room_id = request.form['room_id']
-    user_details = {
-        'name': request.form['name'],
-        'phone': request.form['phone'],
-        'arrival_date': request.form['arrival_date'],
-        'hours': request.form['hours'],
-    }
-
-    room = db.session.execute(
-        "SELECT * FROM rooms WHERE id=:room_id AND status='available'", {'room_id': room_id}
-    ).fetchone()
-
-    if not room:
-        flash('Room is not available.', 'error')
-        return redirect(url_for('main.room_list'))
-
-    db.session.execute(
-        "UPDATE rooms SET status='booked', booked_by=:user_details WHERE id=:room_id",
-        {'user_details': json.dumps(user_details), 'room_id': room_id}
-    )
-    db.session.commit()
-
-    flash('Room booked successfully!', 'success')
-    send_booking_notification(user_details, room_id)
-    return redirect(url_for('main.room_list'))
-
-# Notification functions
-def send_booking_notification(user_details, room_id):
-    message = (
-        f"Hello {user_details['name']},\n\n"
-        f"Your room (ID: {room_id}) is booked.\n"
-        f"Arrival Date: {user_details['arrival_date']}\n"
-        f"Duration: {user_details['hours']} hours\n\n"
-        "Thank you for choosing our service!"
-    )
-    print(f"Notification sent: {message}")
-
-@main.route('/bartender/dashboard', methods=['GET', 'POST'])
-@login_required
-def bartender_dashboard():
-    if session.get('user_role') != 'bartender':
-        flash('Access denied!', 'error')
-        return redirect(url_for('main.dashboard'))
-
-    if request.method == 'POST':
-        beer_id = request.form['beer_id']
-        quantity_sold = int(request.form['quantity_sold'])
-
-        beer = BarStock.query.get(beer_id)
-        if beer and beer.quantity >= quantity_sold:
-            beer.quantity -= quantity_sold
-            remaining_stock = beer.quantity
-            sale = SalesRecord(
-                bartender_id=session['user_id'],
-                beer_id=beer_id,
-                quantity_sold=quantity_sold,
-                remaining_stock=remaining_stock
-            )
-            db.session.add(sale)
-            db.session.commit()
-            flash('Sale recorded successfully!', 'success')
-        else:
-            flash('Insufficient stock!', 'error')
-
-    # Query opening_balance from the database or set a default value
-    opening_balance = db.session.query(OpeningBalance).first()  # Assuming `OpeningBalance` is a model
-    if not opening_balance:
-        opening_balance = {"amount": 0}  # Default value if no record exists
-
-    stock = BarStock.query.all()
-    return render_template(
-        'bartender_dashboard.html',
-        stock=stock,
-        opening_balance=opening_balance
-    )
 
 
 
 beer_stock = []
 
-@app.route('/admin_bar_stock', methods=['GET', 'POST'])
+@main.route('/admin_bar_stock', methods=['GET', 'POST'])
+@login_required
 def admin_bar_stock():
     if request.method == 'POST':
         # Retrieve form data
@@ -508,17 +454,20 @@ def admin_bar_stock():
         # Calculate total value
         total_value = price_per_bottle * quantity
 
-        # Store beer stock data (in real case, save it to a database)
-        beer_stock.append({
-            'name': beer_name,
-            'type': beer_type,
-            'price_per_bottle': price_per_bottle,
-            'quantity': quantity,
-            'total_value': total_value
-        })
+        # Create a new BeerStock instance and add it to the database
+        new_beer = BeerStock(
+            name=beer_name,
+            beer_type=beer_type,
+            price_per_bottle=price_per_bottle,
+            quantity=quantity,
+            total_value=total_value
+        )
+        db.session.add(new_beer)
+        db.session.commit()
 
-        # Redirect to dashboard
-        return redirect(url_for('admin_dashboard'))
+        # Redirect to the admin dashboard after adding the beer stock
+        flash('Beer stock added successfully!', 'success')
+        return redirect(url_for('main.admin_dashboard'))
 
     return render_template('admin_bar_stock.html')
 
@@ -561,6 +510,45 @@ def add_beer():
 
     return render_template('add_beer.html')
 
+
+@main.route('/bartender/dashboard', methods=['GET', 'POST'])
+@login_required
+def bartender_dashboard():
+    if session.get('user_role') != 'bartender':
+        flash('Access denied!', 'error')
+        return redirect(url_for('main.dashboard'))
+
+    if request.method == 'POST':
+        beer_id = request.form['beer_id']
+        quantity_sold = int(request.form['quantity_sold'])
+
+        beer = BarStock.query.get(beer_id)
+        if beer and beer.quantity >= quantity_sold:
+            beer.quantity -= quantity_sold
+            remaining_stock = beer.quantity
+            sale = SalesRecord(
+                bartender_id=session['user_id'],
+                beer_id=beer_id,
+                quantity_sold=quantity_sold,
+                remaining_stock=remaining_stock
+            )
+            db.session.add(sale)
+            db.session.commit()
+            flash('Sale recorded successfully!', 'success')
+        else:
+            flash('Insufficient stock!', 'error')
+
+    # Query opening_balance from the database or set a default value
+    opening_balance = db.session.query(OpeningBalance).first()  # Assuming `OpeningBalance` is a model
+    if not opening_balance:
+        opening_balance = {"amount": 0}  # Default value if no record exists
+
+    stock = BarStock.query.all()
+    return render_template(
+        'bartender_dashboard.html',
+        stock=stock,
+        opening_balance=opening_balance
+    )
 
 @main.route('/bartender/sell_beer', methods=['GET', 'POST'])
 @login_required
@@ -673,6 +661,54 @@ def order_food(food_id):
 
     return render_template('order_food.html', food=food)
 
+
+
+@main.route('/rooms', methods=['GET'])
+@login_required
+def room_list():
+    # Correct the raw SQL query by wrapping it with text()
+    rooms = db.session.execute(text("SELECT * FROM rooms")).fetchall()
+    return render_template('rooms.html', rooms=rooms)
+
+@main.route('/rooms/book', methods=['POST'])
+@login_required
+def book_room():
+    room_id = request.form['room_id']
+    user_details = {
+        'name': request.form['name'],
+        'phone': request.form['phone'],
+        'arrival_date': request.form['arrival_date'],
+        'hours': request.form['hours'],
+    }
+
+    room = db.session.execute(
+        "SELECT * FROM rooms WHERE id=:room_id AND status='available'", {'room_id': room_id}
+    ).fetchone()
+
+    if not room:
+        flash('Room is not available.', 'error')
+        return redirect(url_for('main.room_list'))
+
+    db.session.execute(
+        "UPDATE rooms SET status='booked', booked_by=:user_details WHERE id=:room_id",
+        {'user_details': json.dumps(user_details), 'room_id': room_id}
+    )
+    db.session.commit()
+
+    flash('Room booked successfully!', 'success')
+    send_booking_notification(user_details, room_id)
+    return redirect(url_for('main.room_list'))
+
+# Notification functions
+def send_booking_notification(user_details, room_id):
+    message = (
+        f"Hello {user_details['name']},\n\n"
+        f"Your room (ID: {room_id}) is booked.\n"
+        f"Arrival Date: {user_details['arrival_date']}\n"
+        f"Duration: {user_details['hours']} hours\n\n"
+        "Thank you for choosing our service!"
+    )
+    print(f"Notification sent: {message}")
 
 @main.route('/room_dashboard')
 @login_required

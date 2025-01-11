@@ -158,7 +158,6 @@
                     <li><a href="{{ url_for('main.view_users') }}">View Users</a></li>
                 {% endif %}
             </ul>
-            <!-- Logout Button -->
             <form action="{{ url_for('main.logout') }}" method="POST">
                 <button type="submit" class="logout-button">Logout</button>
             </form>
@@ -188,11 +187,12 @@
                         <td>{{ event.name }}</td>
                         <td>{{ event.date }}</td>
                         <td>{{ rooms_available }}</td>
-                        <td>{{ beer_remaining }} L</td>
+                        <td>{{ beer_remaining }} L</td>  <!-- Correctly display beer_remaining -->
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+
             {% endblock %}
         </div>
     </div>

@@ -5,8 +5,8 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from backend.models import db, User  # Ensure User is imported
 
-# Initialize the Flask application
-login_manager = LoginManager()  # Move this outside of create_app
+# Initialize Flask extensions outside of create_app
+login_manager = LoginManager()
 
 def create_app():
     app = Flask(

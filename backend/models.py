@@ -62,6 +62,7 @@ class Room(db.Model):
     name = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(20), default='available')  # 'available', 'booked'
     booked_by = db.Column(db.JSON, nullable=True)  # Store booking details
+    is_available = db.Column(db.Boolean, default=True)
 
     def __repr__(self):
         return f"<Room {self.name} - {self.status}>"

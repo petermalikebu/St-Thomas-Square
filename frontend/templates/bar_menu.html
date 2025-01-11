@@ -20,6 +20,11 @@
     {% else %}
         <p>No bartender on duty currently.</p>
     {% endif %}
+
+    <!-- Link to Admin Dashboard -->
+    <div class="admin-dashboard-link">
+        <a href="{{ url_for('main.admin_dashboard') }}">Go to Admin Dashboard</a>
+    </div>
 </div>
 
 {% block extra_css %}
@@ -85,6 +90,22 @@
         text-align: center;
         color: #666;
         font-size: 1rem;
+    }
+
+    .admin-dashboard-link {
+        text-align: center;
+        margin-top: 30px;
+    }
+
+    .admin-dashboard-link a {
+        font-size: 1.2rem;
+        color: #007bff;
+        text-decoration: none;
+        transition: color 0.3s ease;
+    }
+
+    .admin-dashboard-link a:hover {
+        color: #0056b3;
     }
 </style>
 {% endblock %}

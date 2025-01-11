@@ -1,24 +1,221 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bar Dashboard</title>
+    <title>Bartender Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        /* Internal CSS */
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            background-color: #f4f4f9;
+            display: flex;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: #343a40;
+            color: #fff;
+            padding: 20px;
+            height: 100vh;
+            position: fixed;
+        }
+
+        .sidebar h3 {
+            font-weight: 700;
+            color: #ffc107;
+        }
+
+        .sidebar button {
+            background-color: #ffc107;
+            border: none;
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            border-radius: 4px;
+            color: #343a40;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .sidebar button:hover {
+            background-color: #e0a800;
+        }
+
+        .main-content {
+            margin-left: 270px;
+            padding: 20px;
+            flex-grow: 1;
+        }
+
+        .beer-list,
+        .selected-beers {
+            margin: 20px 0;
+        }
+
+        .beer-list ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .beer-list ul li {
+            background: #f8f9fa;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .selected-beers ul li {
+            padding: 10px;
+            border: 1px solid #343a40;
+            margin: 5px 0;
+        }
+
+        button.add-beer {
+            background-color: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+        }
+
+        button.add-beer:hover {
+            background-color: #0056b3;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #888;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 30px;
+            border-collapse: collapse;
+        }
+
+        table th, table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+
+        table th {
+            background-color: #343a40;
+            color: white;
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Welcome, {{ session['username'] }}</h1>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h3>Bartender Dashboard</h3>
+        <p>Welcome, {{ session['username'] }}</p>
+        <button onclick="showWarehouse()">View Warehouse Beers</button>
+        <button onclick="showSelected()">My Selected Beers</button>
+        <button onclick="recordSales()">Record Sales</button>
+        <form action="{{ url_for('main.logout') }}" method="POST">
+            <button type="submit">Logout</button>
+        </form>
+    </div>
 
-    <h2>Events This Week</h2>
-    <ul>
-        {% for event in events %}
-        <li>{{ event.name }} - {{ event.date }}</li>
-        {% endfor %}
-    </ul>
+    <!-- Main Content -->
+    <div class="main-content">
+        <div id="warehouse" class="beer-list">
+            <h4>Current Bar Stock</h4>
+            <!-- Updated table with bar stock details -->
+            <table>
+                <thead>
+                    <tr>
+                        <th>Beer Name</th>
+                        <th>Type</th>
+                        <th>Price per Bottle</th>
+                        <th>Quantity</th>
+                        <th>Total Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for beer in beers %}
+                    <tr>
+                        <td>{{ beer.name }}</td>
+                        <td>{{ beer.type }}</td>
+                        <td>${{ beer.price_per_bottle }}</td>
+                        <td>{{ beer.quantity }}</td>
+                        <td>${{ beer.quantity * beer.price_per_bottle }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-    <h2>Opening Balance: {{ opening_balance.amount }}</h2>
+        <div id="selected" class="selected-beers" style="display: none;">
+            <h4>Beers Selected for Sale</h4>
+            <ul id="selected-beer-list">
+                <!-- Selected beers will be added here via JavaScript -->
+            </ul>
+        </div>
 
-    <form method="POST">
-        <!-- Add form for daily sales and closing stock -->
-    </form>
+        <div id="sales-form" style="display: none;">
+            <h4>Record Daily Sales</h4>
+            <form action="{{ url_for('main.bartender_dashboard') }}" method="POST">
+                <label for="beer_id">Beer:</label>
+                <select name="beer_id" id="beer_id" class="form-control">
+                    {% for beer in beers %}
+                    <option value="{{ beer.id }}">{{ beer.name }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="quantity">Quantity Sold:</label>
+                <input type="number" name="quantity_sold" id="quantity" class="form-control" required>
+
+                <button type="submit" class="btn btn-primary btn-block mt-3">Submit Sales</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2025 Bar Management System. All rights reserved.</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // JavaScript for interactivity
+        function showWarehouse() {
+            document.getElementById('warehouse').style.display = 'block';
+            document.getElementById('selected').style.display = 'none';
+            document.getElementById('sales-form').style.display = 'none';
+        }
+
+        function showSelected() {
+            document.getElementById('warehouse').style.display = 'none';
+            document.getElementById('selected').style.display = 'block';
+            document.getElementById('sales-form').style.display = 'none';
+        }
+
+        function recordSales() {
+            document.getElementById('warehouse').style.display = 'none';
+            document.getElementById('selected').style.display = 'none';
+            document.getElementById('sales-form').style.display = 'block';
+        }
+    </script>
 </body>
+
 </html>

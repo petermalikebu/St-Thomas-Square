@@ -89,3 +89,97 @@ class Staff(db.Model):
 
     def __repr__(self):
         return f"<Staff {self.name} - {self.position}>"
+
+
+class BarStock(db.Model):
+    __tablename__ = 'bar_stock'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    price_per_bottle = db.Column(db.Float, nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    total_value = db.Column(db.Float, nullable=False)
+    date_added = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<BarStock {self.name} - {self.quantity} bottles>"
+
+class SalesRecord(db.Model):
+    __tablename__ = 'sales_record'
+
+    id = db.Column(db.Integer, primary_key=True)
+    bartender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    beer_id = db.Column(db.Integer, db.ForeignKey('bar_stock.id'), nullable=False)
+    quantity_sold = db.Column(db.Integer, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    remaining_stock = db.Column(db.Integer, nullable=False)
+
+    bartender = db.relationship('User', backref='sales')
+    beer = db.relationship('BarStock', backref='sales')
+
+    def __repr__(self):
+        return f"<SalesRecord {self.quantity_sold} of {self.beer.name}>"
+
+
+class BeerStock(db.Model):
+    __tablename__ = 'beer_stock'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    name = db.Column(db.String(100), nullable=False)
+    beer_type = db.Column(db.String(50), nullable=False)  # E.g., Lager, Ale
+    price_per_bottle = db.Column(db.Float, nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    total_value = db.Column(db.Float, nullable=False)
+    date_added = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<BeerStock {self.name}, Type: {self.beer_type}>"
+
+class BartenderTransaction(db.Model):
+    __tablename__ = 'bartender_transactions'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    bartender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    beer_id = db.Column(db.Integer, db.ForeignKey('beer_stock.id'), nullable=False)
+    quantity_sold = db.Column(db.Integer, nullable=False)
+    total_price = db.Column(db.Float, nullable=False)
+    transaction_date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    bartender = db.relationship('User', backref=db.backref('transactions', lazy=True))
+    beer = db.relationship('BeerStock', backref=db.backref('transactions', lazy=True))
+
+    def __repr__(self):
+        return f"<Transaction Beer ID: {self.beer_id}, Quantity: {self.quantity_sold}>"
+
+class OpeningBalance(db.Model):
+    __tablename__ = 'opening_balance'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    balance = db.Column(db.Float, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<OpeningBalance {self.balance} on {self.date}>"
+
+class OpeningBalance(db.Model):
+    __tablename__ = 'opening_balance'
+    __table_args__ = {'extend_existing': True}
+    id = db.Column(db.Integer, primary_key=True)
+    balance = db.Column(db.Float, nullable=False)
+    date = db.Column(db.Date, nullable=False)
+
+
+    def __repr__(self):
+        return f"<OpeningBalance {self.balance} on {self.date}>"
+
+class Beer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    price_per_bottle = db.Column(db.Float, nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+
+    @property
+    def total_value(self):
+        return self.price_per_bottle * self.quantity
